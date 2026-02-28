@@ -3,12 +3,15 @@ import random
 from pathlib import Path
 
 from src.config import (
-    SAMPLE_PAIRS_JSONL_PATH,
-    GENERATIONS_DIR,
-    JUDGMENTS_DIR,
+    PAIRS_JSONL_PATH,
+    REVIEWS_PEER_JSONL,
+    REVIEWS_VANILLA_JSONL,
+    JUDGMENTS_PAIRWISE_JSONL,
     JUDGE_MODEL_NAME,
     JUDGE_TEMPERATURE,
     JUDGE_MAX_OUTPUT_TOKENS,
+    JUDGE_PAPER_MAX_CHARS,
+    JUDGE_GT_MAX_CHARS,
     RANDOM_SEED,
     ensure_dirs,
 )
@@ -31,28 +34,39 @@ def load_prompt() -> str:
         return f.read()
 
 
+def truncate_for_judge(text: str, max_chars: int) -> str:
+    """Truncate text for judge prompt to fit context window."""
+    if not text or len(text) <= max_chars:
+        return text or ""
+    return text[:max_chars].rstrip() + "\n\n[...TRUNCATED...]"
+
+
 def main():
     """
-    Pairwise LLM-as-a-Judge:
-      - Uses sample_pairs.jsonl for (paper_text, ground_truth)
-      - Uses reviews_sample_peer.jsonl and reviews_sample_vanilla.jsonl
-      - Randomly assigns which condition is A/B per paper (roughly balanced)
-      - Asks judge model which is closer to ground-truth human review.
-    Output: outputs/judgments/judgments_pairwise_sample.jsonl
+    Pairwise LLM-as-a-Judge (full dataset):
+      - Uses pairs.jsonl for (paper_text, ground_truth)
+      - Uses reviews_peer.jsonl and reviews_vanilla.jsonl
+      - Truncates paper/ground_truth for judge context limits
+      - Randomly assigns which condition is A/B per paper (blind)
+    Output: outputs/judgments/judgments_pairwise.jsonl
     """
     ensure_dirs()
     random.seed(RANDOM_SEED)
 
+    if not PAIRS_JSONL_PATH.exists():
+        raise FileNotFoundError(
+            f"Pairs file not found: {PAIRS_JSONL_PATH}. Run scripts/01_build_pairs.py first."
+        )
+
     template = load_prompt()
     client = LLMClient(model_name=JUDGE_MODEL_NAME)
 
-    # Load base data
     pairs_by_id = {
-        row["paper_id"]: row for row in read_jsonl(SAMPLE_PAIRS_JSONL_PATH)
+        row["paper_id"]: row for row in read_jsonl(PAIRS_JSONL_PATH)
     }
 
-    peer_path = GENERATIONS_DIR / "reviews_sample_peer.jsonl"
-    vanilla_path = GENERATIONS_DIR / "reviews_sample_vanilla.jsonl"
+    peer_path = REVIEWS_PEER_JSONL
+    vanilla_path = REVIEWS_VANILLA_JSONL
 
     peer_by_id = {}
     if peer_path.exists():
@@ -72,7 +86,7 @@ def main():
         set(pairs_by_id.keys()) & set(peer_by_id.keys()) & set(vanilla_by_id.keys())
     )
 
-    out_path = JUDGMENTS_DIR / "judgments_pairwise_sample.jsonl"
+    out_path = JUDGMENTS_PAIRWISE_JSONL
 
     with open(out_path, "w", encoding="utf-8") as out:
         for paper_id in common_ids:
@@ -80,8 +94,12 @@ def main():
             peer_row = peer_by_id[paper_id]
             vanilla_row = vanilla_by_id[paper_id]
 
-            paper_text = pair["paper_text"]
-            ground_truth = pair["ground_truth"]
+            paper_text = truncate_for_judge(
+                pair["paper_text"], JUDGE_PAPER_MAX_CHARS
+            )
+            ground_truth = truncate_for_judge(
+                pair["ground_truth"], JUDGE_GT_MAX_CHARS
+            )
             peer_review = peer_row["generated_review"]
             vanilla_review = vanilla_row["generated_review"]
 

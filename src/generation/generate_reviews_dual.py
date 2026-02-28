@@ -2,8 +2,9 @@ import json
 from pathlib import Path
 
 from src.config import (
-    SAMPLE_PAIRS_JSONL_PATH,
-    GENERATIONS_DIR,
+    PAIRS_JSONL_PATH,
+    REVIEWS_PEER_JSONL,
+    REVIEWS_VANILLA_JSONL,
     GEN_MODEL_NAME,
     GEN_TEMPERATURE,
     GEN_MAX_OUTPUT_TOKENS,
@@ -80,27 +81,30 @@ def smart_truncate(text: str, max_chars: int) -> tuple[str, str]:
 
 def main():
     """
-    Generate reviews for both conditions:
-      - peer: structured / skill-like prompt
+    Generate reviews for both conditions (full dataset):
+      - peer: peer-review skill (SKILL.md) injected prompt
       - vanilla: simple baseline reviewer prompt
+    Input: data/processed/pairs.jsonl
     Outputs:
-      - outputs/generations/reviews_sample_peer.jsonl
-      - outputs/generations/reviews_sample_vanilla.jsonl
+      - outputs/generations/reviews_peer.jsonl
+      - outputs/generations/reviews_vanilla.jsonl
     """
     ensure_dirs()
+
+    if not PAIRS_JSONL_PATH.exists():
+        raise FileNotFoundError(
+            f"Pairs file not found: {PAIRS_JSONL_PATH}. Run scripts/01_build_pairs.py first."
+        )
 
     client = LLMClient(model_name=GEN_MODEL_NAME)
     template_peer = load_prompt(PROMPT_PATH_PEER)
     template_vanilla = load_prompt(PROMPT_PATH_VANILLA)
     peer_skill_text = load_peer_review_skill_text()
 
-    out_peer = GENERATIONS_DIR / "reviews_sample_peer.jsonl"
-    out_vanilla = GENERATIONS_DIR / "reviews_sample_vanilla.jsonl"
-
-    with open(out_peer, "w", encoding="utf-8") as out_p, open(
-        out_vanilla, "w", encoding="utf-8"
+    with open(REVIEWS_PEER_JSONL, "w", encoding="utf-8") as out_p, open(
+        REVIEWS_VANILLA_JSONL, "w", encoding="utf-8"
     ) as out_v:
-        for row in read_jsonl(SAMPLE_PAIRS_JSONL_PATH):
+        for row in read_jsonl(PAIRS_JSONL_PATH):
             paper_id = row["paper_id"]
             paper_text = row["paper_text"]
 
@@ -191,8 +195,8 @@ def main():
                 f"Generated peer+vanilla reviews for paper {paper_id} (trunc={trunc_strategy})"
             )
 
-    print(f"Done. Saved peer to: {out_peer}")
-    print(f"Done. Saved vanilla to: {out_vanilla}")
+    print(f"Done. Saved peer to: {REVIEWS_PEER_JSONL}")
+    print(f"Done. Saved vanilla to: {REVIEWS_VANILLA_JSONL}")
 
 
 if __name__ == "__main__":

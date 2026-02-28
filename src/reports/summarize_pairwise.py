@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from src.config import JUDGMENTS_DIR, REPORTS_DIR, ensure_dirs
+from src.config import JUDGMENTS_PAIRWISE_JSONL, REPORTS_DIR, ensure_dirs
 
 
 def read_jsonl(path: Path):
@@ -14,10 +14,10 @@ def read_jsonl(path: Path):
 
 def main():
     """
-    Summarize pairwise LLM-as-a-Judge results.
+    Summarize pairwise LLM-as-a-Judge results (full dataset).
 
     Input:
-      - outputs/judgments/judgments_pairwise_sample.jsonl
+      - outputs/judgments/judgments_pairwise.jsonl
         Each line:
           {
             "paper_id": ...,
@@ -34,7 +34,7 @@ def main():
     """
     ensure_dirs()
 
-    in_path = JUDGMENTS_DIR / "judgments_pairwise_sample.jsonl"
+    in_path = JUDGMENTS_PAIRWISE_JSONL
     if not in_path.exists():
         raise FileNotFoundError(f"Judgments file not found: {in_path}")
 

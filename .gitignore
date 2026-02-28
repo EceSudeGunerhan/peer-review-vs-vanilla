@@ -28,10 +28,13 @@ Thumbs.db
 # Parsed PDF JSONs: ~349 files, can total 50–200MB+
 data/raw/iclr_2017/parsed_pdfs/
 
-# Processed pairs: ~15MB+ single file
+# Processed pairs: ~15MB+ single file (full dataset)
 data/processed/pairs.jsonl
 
-# Generated outputs (can grow large with full dataset)
+# Sample subset (optional, smaller)
+data/processed/sample_pairs.jsonl
+
+# Generated outputs (full dataset: ~350 reviews × 2 conditions + judgments)
 outputs/
 
 # Jupyter

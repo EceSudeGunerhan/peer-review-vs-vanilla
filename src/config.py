@@ -20,10 +20,19 @@ GENERATIONS_DIR = OUTPUTS_DIR / "generations"
 JUDGMENTS_DIR = OUTPUTS_DIR / "judgments"
 REPORTS_DIR = OUTPUTS_DIR / "reports"
 
+# Full-dataset output filenames (no "sample" suffix)
+REVIEWS_PEER_JSONL = GENERATIONS_DIR / "reviews_peer.jsonl"
+REVIEWS_VANILLA_JSONL = GENERATIONS_DIR / "reviews_vanilla.jsonl"
+JUDGMENTS_PAIRWISE_JSONL = JUDGMENTS_DIR / "judgments_pairwise.jsonl"
+
 # -------- Data limits --------
 DEFAULT_PAPER_MAX_CHARS = 50000
 
-# -------- SAMPLE --------
+# -------- Judge context limits (for pairwise prompt) --------
+JUDGE_PAPER_MAX_CHARS = 8000
+JUDGE_GT_MAX_CHARS = 6000
+
+# -------- SAMPLE (used only by 01b_make_sample) --------
 SAMPLE_SIZE = 10
 RANDOM_SEED = 42
 

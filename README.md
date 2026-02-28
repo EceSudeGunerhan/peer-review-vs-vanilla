@@ -4,6 +4,8 @@ This project compares automatically generated scientific reviews produced using 
 
 Quality is evaluated using **LLM-as-a-Judge** with blind pairwise comparison.
 
+The pipeline runs on the **full ICLR 2017 subset** of PeerRead (all paper–review pairs that pass quality filters).
+
 ---
 
 ## Research Question
@@ -45,30 +47,21 @@ export OPENROUTER_API_KEY="sk-or-..."
 
 ## Dataset
 
-This project uses the ICLR 2017 subset of the PeerRead dataset, which contains parsed paper texts and corresponding human-written reviews.
+This project uses the **ICLR 2017 subset of the PeerRead dataset**, containing parsed paper texts and corresponding human-written reviews.
 
-The evaluation is conducted only on paper–review pairs that satisfy predefined quality constraints:
+The evaluation is conducted on **all** paper–review pairs that satisfy predefined quality constraints:
 
-- paper_text ≥ 1500 characters  
-- ground_truth ≥ 200 characters  
+- `paper_text` ≥ 1500 characters  
+- `ground_truth` ≥ 200 characters  
 
 The dataset is not included in this repository due to size and licensing considerations.  
 Users must obtain the dataset independently and run the preprocessing scripts locally.
 
 ---
 
-## Quality Filters
+## Execution Pipeline (Full Dataset)
 
-To ensure meaningful evaluation:
-
-- `paper_text` must be at least **1500 characters**
-- `ground_truth` must be at least **200 characters**
-
----
-
-## Execution Pipeline
-
-### 1. Build paper-review pairs
+### 1. Build paper–review pairs
 
 ```bash
 python scripts/01_build_pairs.py
@@ -80,23 +73,11 @@ Creates:
 data/processed/pairs.jsonl
 ```
 
----
-
-### 2. Create sample subset (default: 10 papers)
-
-```bash
-python scripts/01b_make_sample.py
-```
-
-Creates:
-
-```
-data/processed/sample_pairs.jsonl
-```
+This file contains all paper–review pairs that pass the quality filters (316 papers in the final experiment).
 
 ---
 
-### 3. Generate reviews (peer + vanilla)
+### 2. Generate reviews (peer + vanilla)
 
 ```bash
 python scripts/02_generate_reviews_dual.py
@@ -105,13 +86,15 @@ python scripts/02_generate_reviews_dual.py
 Creates:
 
 ```
-outputs/generations/reviews_sample_peer.jsonl
-outputs/generations/reviews_sample_vanilla.jsonl
+outputs/generations/reviews_peer.jsonl
+outputs/generations/reviews_vanilla.jsonl
 ```
+
+Each paper in `pairs.jsonl` is processed. Paper text is truncated to 8000 characters (head + tail) for generation.
 
 ---
 
-### 4. Blind A/B pairwise judging
+### 3. Blind A/B pairwise judging
 
 ```bash
 python scripts/03_judge_pairwise_ab.py
@@ -120,12 +103,20 @@ python scripts/03_judge_pairwise_ab.py
 Creates:
 
 ```
-outputs/judgments/judgments_pairwise_sample.jsonl
+outputs/judgments/judgments_pairwise.jsonl
 ```
+
+For each paper, the judge receives:
+
+- Paper text  
+- Ground-truth review  
+- Two generated reviews (A and B)
+
+Assignment of peer/vanilla to A/B is randomized per paper (blind comparison).
 
 ---
 
-### 5. Compute win-rate summary
+### 4. Compute win-rate summary
 
 ```bash
 python scripts/04_summarize_pairwise.py
@@ -141,63 +132,103 @@ outputs/reports/pairwise_summary.md
 
 ---
 
-## Output Format
+# Experimental Results (Full Dataset, n = 316)
 
-### `judgments_pairwise_sample.jsonl`
-
-Each line contains:
+## Pairwise Summary (JSON)
 
 ```json
 {
-  "paper_id": "762",
-  "cond_A": "peer",
-  "cond_B": "vanilla",
-  "winner": "A",
-  "reasoning": "Review A better matches the ground truth..."
-}
-```
-
-- `winner`: `"A"`, `"B"`, or `"tie"`
-- `cond_A` / `cond_B`: Randomly assigned for blind comparison
-
----
-
-### `pairwise_summary.json`
-
-```json
-{
-  "num_examples": 10,
-  "peer_wins": 6,
-  "vanilla_wins": 2,
-  "ties": 2,
-  "peer_win_rate_total": 0.6,
-  "vanilla_win_rate_total": 0.2,
-  "tie_rate_total": 0.2,
-  "peer_win_rate_non_tie": 0.75,
-  "vanilla_win_rate_non_tie": 0.25
+  "num_examples": 316,
+  "peer_wins": 203,
+  "vanilla_wins": 109,
+  "ties": 4,
+  "peer_win_rate_total": 0.6424050632911392,
+  "vanilla_win_rate_total": 0.3449367088607595,
+  "tie_rate_total": 0.012658227848101266,
+  "peer_win_rate_non_tie": 0.6506410256410257,
+  "vanilla_win_rate_non_tie": 0.34935897435897434
 }
 ```
 
 ---
 
-## Example Interpretation (10-Sample Run)
+## Pairwise Summary (CSV)
 
-| Metric | Value |
-|--------|-------|
-| Total examples | 10 |
-| Peer wins | 6 |
-| Vanilla wins | 2 |
-| Ties | 2 |
-| Peer win rate (total) | 60% |
-| Vanilla win rate (total) | 20% |
-| Tie rate | 20% |
-| Peer win rate (excluding ties) | 75% |
-| Vanilla win rate (excluding ties) | 25% |
+```csv
+condition,wins,win_rate_total,win_rate_non_tie
+peer,203,0.6424050632911392,0.6506410256410257
+vanilla,109,0.3449367088607595,0.34935897435897434
+tie,4,0.012658227848101266,
+```
 
-Interpretation:
+---
 
-- The peer-review skill produces outputs that are closer to the ground truth compared to the vanilla prompt.
-- A 10-example sample is small; increase `SAMPLE_SIZE` in `src/config.py` for more reliable results.
+## Human-Readable Summary
+
+```
+Total examples: 316
+Peer wins: 203
+Vanilla wins: 109
+Ties: 4
+
+Win rates (over all examples):
+- Peer: 0.642
+- Vanilla: 0.345
+- Tie: 0.013
+
+Win rates (excluding ties):
+- Peer: 0.651
+- Vanilla: 0.349
+```
+
+---
+
+## Interpretation
+
+- The peer-review skill outperforms the vanilla prompt on the full dataset.
+- Peer wins in **64.2%** of all comparisons.
+- Excluding ties, peer wins **65.1%** of the time.
+- Tie rate is very low (**1.3%**), indicating strong separation between conditions.
+
+These results suggest that structured peer-review prompting improves alignment with human-written ground-truth reviews.
+
+---
+
+## Example Outputs
+
+### Example Judgment Entry
+
+```json
+{
+  "paper_id": "305",
+  "cond_A": "vanilla",
+  "cond_B": "peer",
+  "winner": "B",
+  "reasoning": "Review B more closely matches the ground-truth review's style and content coverage..."
+}
+```
+
+### Example Peer Review Output (Truncated)
+
+```json
+{
+  "paper_id": "305",
+  "condition": "peer",
+  "model": "openai/gpt-4o",
+  "truncation": "head_tail"
+}
+```
+
+### Example Vanilla Review Output (Truncated)
+
+```json
+{
+  "paper_id": "305",
+  "condition": "vanilla",
+  "model": "openai/gpt-4o",
+  "truncation": "head_tail"
+}
+```
 
 ---
 
@@ -205,11 +236,15 @@ Interpretation:
 
 Defined in `src/config.py`:
 
-- `SAMPLE_SIZE`
-- `GEN_MODEL_NAME`
-- `JUDGE_MODEL_NAME`
-- `GEN_TEMPERATURE`
-- `JUDGE_TEMPERATURE`
-- `GEN_MAX_OUTPUT_TOKENS`
-- `JUDGE_MAX_OUTPUT_TOKENS`
+| Parameter | Default |
+|------------|----------|
+| `GEN_MODEL_NAME` | `openai/gpt-4o` |
+| `JUDGE_MODEL_NAME` | `anthropic/claude-3.5-sonnet` |
+| `GEN_TEMPERATURE` | 0.3 |
+| `JUDGE_TEMPERATURE` | 0.0 |
+| `GEN_MAX_OUTPUT_TOKENS` | 1500 |
+| `JUDGE_MAX_OUTPUT_TOKENS` | 800 |
+| `JUDGE_PAPER_MAX_CHARS` | 8000 |
+| `JUDGE_GT_MAX_CHARS` | 6000 |
+| `RANDOM_SEED` | 42 |
 
