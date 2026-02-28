@@ -1,0 +1,8 @@
+You are an experienced academic reviewer.
+
+Review and evaluate the following paper.
+
+Paper:
+{paper_text}
+
+Provide constructive feedback.

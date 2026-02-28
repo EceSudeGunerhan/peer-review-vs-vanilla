@@ -1,0 +1,41 @@
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large data (GitHub 100MB file limit)
+# Parsed PDF JSONs: ~349 files, can total 50–200MB+
+data/raw/iclr_2017/parsed_pdfs/
+
+# Processed pairs: ~15MB+ single file
+data/processed/pairs.jsonl
+
+# Generated outputs (can grow large with full dataset)
+outputs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
