@@ -45,20 +45,15 @@ export OPENROUTER_API_KEY="sk-or-..."
 
 ## Dataset
 
-This project uses the **PeerRead ICLR 2017** dataset.
+This project uses the ICLR 2017 subset of the PeerRead dataset, which contains parsed paper texts and corresponding human-written reviews.
 
-Required directories under `data/raw/iclr_2017/`:
+The evaluation is conducted only on paper–review pairs that satisfy predefined quality constraints:
 
-- `parsed_pdfs/` — Paper texts (JSON files parsed from PDFs)
-- `reviews/` — Ground-truth human reviews
+- paper_text ≥ 1500 characters  
+- ground_truth ≥ 200 characters  
 
-Dataset sources:
-
-- PeerRead: https://github.com/allenai/peerread  
-- ICLR 2017: https://iclr.cc/Conferences/2017  
-
-> Note: Due to `.gitignore`, dataset files and generated outputs are not included in the repository.  
-You must download the dataset and run the preprocessing scripts locally.
+The dataset is not included in this repository due to size and licensing considerations.  
+Users must obtain the dataset independently and run the preprocessing scripts locally.
 
 ---
 
