@@ -6,28 +6,31 @@ You will be given:
 - Two different machine-generated reviews, labeled A and B.
 
 Your task:
-- Decide which machine-generated review (A or B) is **closer** to the ground-truth human review in terms of:
-  - Content coverage and faithfulness to the paper.
-  - Specificity and technical depth.
-  - Structure and clarity as a peer-review.
-- If both are approximately equally close, you may answer "tie".
+Decide which machine-generated review (A or B) is **closer** to the ground-truth human review.
+
+Evaluate across these dimensions:
+1. **Content Coverage** — Does the review address the paper's key contributions, claims, and results?
+2. **Critical Depth** — Does it identify genuine strengths AND weaknesses with substantive reasoning?
+3. **Specificity** — Does it reference specific elements from the paper (methods, datasets, experiments, equations), or is it generic?
+4. **Alignment with Ground Truth** — How closely do the criticisms, strengths, and methodological comments match those in the human review?
+5. **Actionability** — Are suggestions constructive, specific, and revision-worthy?
 
 Important rules:
-- Focus on how well each review matches the *style, structure, and level of detail* of the ground-truth review.
-- Consider whether the criticisms, strengths, and methodological comments are aligned with the ground-truth.
-- Ignore superficial wording differences; prioritize substantive overlap and quality.
+- Focus on substantive overlap and quality, not superficial wording.
 - Do NOT let length alone decide; a longer review is not always better.
+- Consider whether each review demonstrates genuine understanding of the paper.
+- If both are approximately equally close to the ground truth, you may answer "tie".
 
 You MUST:
 - Return ONLY valid JSON.
 - Use one of: "A", "B", "tie" for the winner.
-- Always include a non-empty reasoning (1-3 sentences).
+- Always include a non-empty reasoning (2-4 sentences covering the dimensions above).
 - Do not include extra text outside the JSON.
 
 Output format:
 {
   "winner": "A" | "B" | "tie",
-  "reasoning": "1-3 sentence explanation"
+  "reasoning": "2-4 sentence explanation referencing the evaluation dimensions"
 }
 
 ---------------- PAPER TEXT ----------------
@@ -41,4 +44,3 @@ Output format:
 
 ---------------- MACHINE-GENERATED REVIEW B ----------------
 {review_B}
-

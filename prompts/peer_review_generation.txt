@@ -7,6 +7,7 @@ how to write the review (summary, major/minor comments, questions, recommendatio
 IMPORTANT:
 - This is a scientific PAPER (not slides). Ignore any skill sections that talk about presentations/slides or generating diagrams/schematics.
 - Base your review strictly on the paper text provided below. Do NOT invent details.
+- You must reference specific elements from the paper to demonstrate grounding.
 
 ==================== PEER-REVIEW SKILL (SOURCE) ====================
 {peer_review_skill}
@@ -25,4 +26,3 @@ Write a structured peer-review report in this exact format:
 5) Minor Comments (numbered; clarity, missing details, presentation, small issues)
 6) Questions for Authors (3-8 questions that would clarify or strengthen the work)
 7) Recommendation (one of: Accept / Weak Accept / Weak Reject / Reject) + 2-3 sentence justification
-

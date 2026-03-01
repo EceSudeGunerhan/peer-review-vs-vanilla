@@ -1,24 +1,35 @@
 import json
 import random
+import hashlib
+import logging
+import argparse
 from pathlib import Path
 
 from src.config import (
     PAIRS_JSONL_PATH,
     REVIEWS_PEER_JSONL,
     REVIEWS_VANILLA_JSONL,
-    JUDGMENTS_PAIRWISE_JSONL,
+    JUDGMENTS_PAIRWISE_JUDGE1_JSONL,
+    JUDGMENTS_PAIRWISE_JUDGE2_JSONL,
     JUDGE_MODEL_NAME,
+    JUDGE_MODEL_NAME_2,
     JUDGE_TEMPERATURE,
     JUDGE_MAX_OUTPUT_TOKENS,
     JUDGE_PAPER_MAX_CHARS,
     JUDGE_GT_MAX_CHARS,
     RANDOM_SEED,
+    PROJECT_ROOT,
     ensure_dirs,
 )
 from src.generation.llm_client import LLMClient
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-PROMPT_PATH = Path("prompts/judge_pairwise_ab.txt")
+PROMPT_PATH = PROJECT_ROOT / "prompts" / "judge_pairwise_ab.txt"
 
 
 def read_jsonl(path):
@@ -41,55 +52,90 @@ def truncate_for_judge(text: str, max_chars: int) -> str:
     return text[:max_chars].rstrip() + "\n\n[...TRUNCATED...]"
 
 
+def load_existing_ids(path: Path) -> set:
+    """Load paper IDs already judged (for resume)."""
+    ids = set()
+    if path.exists():
+        for row in read_jsonl(path):
+            ids.add(row["paper_id"])
+    return ids
+
+
 def main():
     """
-    Pairwise LLM-as-a-Judge (full dataset):
-      - Uses pairs.jsonl for (paper_text, ground_truth)
-      - Uses reviews_peer.jsonl and reviews_vanilla.jsonl
-      - Truncates paper/ground_truth for judge context limits
-      - Randomly assigns which condition is A/B per paper (blind)
-    Output: outputs/judgments/judgments_pairwise.jsonl
+    Pairwise LLM-as-a-Judge with multi-judge support and resume.
+
+    Usage:
+      python scripts/03_judge_pairwise_ab.py               # Judge 1 (Claude, primary)
+      python scripts/03_judge_pairwise_ab.py --judge 2      # Judge 2 (GPT, secondary)
     """
+    parser = argparse.ArgumentParser(description="Pairwise LLM Judge")
+    parser.add_argument(
+        "--judge", type=int, default=1, choices=[1, 2],
+        help="Judge number: 1=primary (Claude), 2=secondary (GPT)"
+    )
+    args = parser.parse_args()
+
     ensure_dirs()
     random.seed(RANDOM_SEED)
 
+    # Select judge model and output path
+    if args.judge == 1:
+        judge_model = JUDGE_MODEL_NAME
+        out_path = JUDGMENTS_PAIRWISE_JUDGE1_JSONL
+        judge_label = "judge1_claude"
+    else:
+        judge_model = JUDGE_MODEL_NAME_2
+        out_path = JUDGMENTS_PAIRWISE_JUDGE2_JSONL
+        judge_label = "judge2_gpt"
+
+    logger.info(f"Judge: {judge_label} ({judge_model})")
+    logger.info(f"Output: {out_path}")
+
     if not PAIRS_JSONL_PATH.exists():
         raise FileNotFoundError(
-            f"Pairs file not found: {PAIRS_JSONL_PATH}. Run scripts/01_build_pairs.py first."
+            f"Pairs file not found: {PAIRS_JSONL_PATH}. "
+            f"Run scripts/01_build_pairs.py first."
         )
 
     template = load_prompt()
-    client = LLMClient(model_name=JUDGE_MODEL_NAME)
+    client = LLMClient(model_name=judge_model)
 
+    # Load data
     pairs_by_id = {
         row["paper_id"]: row for row in read_jsonl(PAIRS_JSONL_PATH)
     }
 
-    peer_path = REVIEWS_PEER_JSONL
-    vanilla_path = REVIEWS_VANILLA_JSONL
-
     peer_by_id = {}
-    if peer_path.exists():
-        for row in read_jsonl(peer_path):
-            if row.get("error"):
-                continue
-            peer_by_id[row["paper_id"]] = row
+    if REVIEWS_PEER_JSONL.exists():
+        for row in read_jsonl(REVIEWS_PEER_JSONL):
+            if row.get("error") is None:
+                peer_by_id[row["paper_id"]] = row
 
     vanilla_by_id = {}
-    if vanilla_path.exists():
-        for row in read_jsonl(vanilla_path):
-            if row.get("error"):
-                continue
-            vanilla_by_id[row["paper_id"]] = row
+    if REVIEWS_VANILLA_JSONL.exists():
+        for row in read_jsonl(REVIEWS_VANILLA_JSONL):
+            if row.get("error") is None:
+                vanilla_by_id[row["paper_id"]] = row
 
     common_ids = sorted(
         set(pairs_by_id.keys()) & set(peer_by_id.keys()) & set(vanilla_by_id.keys())
     )
+    total = len(common_ids)
+    logger.info(f"Papers to judge: {total}")
 
-    out_path = JUDGMENTS_PAIRWISE_JSONL
+    # Resume: skip already-judged papers
+    done_ids = load_existing_ids(out_path)
+    if done_ids:
+        logger.info(f"Resuming: {len(done_ids)} already judged, skipping.")
 
-    with open(out_path, "w", encoding="utf-8") as out:
-        for paper_id in common_ids:
+    mode = "a" if done_ids else "w"
+
+    with open(out_path, mode, encoding="utf-8") as out:
+        for idx, paper_id in enumerate(common_ids, 1):
+            if paper_id in done_ids:
+                continue
+
             pair = pairs_by_id[paper_id]
             peer_row = peer_by_id[paper_id]
             vanilla_row = vanilla_by_id[paper_id]
@@ -104,7 +150,10 @@ def main():
             vanilla_review = vanilla_row["generated_review"]
 
             # Randomly decide mapping to A/B (blind)
-            if random.random() < 0.5:
+            # Use deterministic hash so both judges get SAME assignment
+            seed = int(hashlib.md5(paper_id.encode()).hexdigest()[:8], 16)
+            rng = random.Random(RANDOM_SEED + seed)
+            if rng.random() < 0.5:
                 cond_A, cond_B = "peer", "vanilla"
                 review_A, review_B = peer_review, vanilla_review
             else:
@@ -124,11 +173,17 @@ def main():
                     temperature=JUDGE_TEMPERATURE,
                     max_output_tokens=JUDGE_MAX_OUTPUT_TOKENS,
                 )
-                parsed = json.loads(judge_out)
+                # Strip markdown code fences if present
+                cleaned = judge_out.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("\n", 1)[1]
+                if cleaned.endswith("```"):
+                    cleaned = cleaned.rsplit("```", 1)[0]
+                parsed = json.loads(cleaned.strip())
             except Exception as e:
                 parsed = {
                     "winner": "tie",
-                    "reasoning": f"ERROR: {str(e)}",
+                    "reasoning": f"ERROR: {str(e)[:200]}",
                 }
 
             winner = parsed.get("winner")
@@ -140,14 +195,19 @@ def main():
                 "cond_B": cond_B,
                 "winner": winner,
                 "reasoning": reasoning,
+                "judge_model": judge_model,
             }
 
             out.write(json.dumps(result, ensure_ascii=False) + "\n")
-            print(f"Pairwise judged paper {paper_id} (A={cond_A}, B={cond_B}, winner={winner})")
+            out.flush()
 
-    print(f"Pairwise judging complete. Saved to: {out_path}")
+            logger.info(
+                f"[{idx}/{total}] paper={paper_id} "
+                f"A={cond_A} B={cond_B} winner={winner}"
+            )
+
+    logger.info(f"Judging complete ({judge_label}). Saved to: {out_path}")
 
 
 if __name__ == "__main__":
     main()
-

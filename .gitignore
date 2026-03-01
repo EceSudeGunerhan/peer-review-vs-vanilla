@@ -24,21 +24,5 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Large data (GitHub 100MB file limit)
-# Parsed PDF JSONs: ~349 files, can total 50–200MB+
-data/raw/iclr_2017/parsed_pdfs/
-
-# Processed pairs: ~15MB+ single file (full dataset)
-data/processed/pairs.jsonl
-
-# Sample subset (optional, smaller)
-data/processed/sample_pairs.jsonl
-
-# Generated outputs (full dataset: ~350 reviews × 2 conditions + judgments)
-outputs/
-
-# Jupyter
-.ipynb_checkpoints/
-
 # Logs
 *.log

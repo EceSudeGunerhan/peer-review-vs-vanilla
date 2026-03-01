@@ -141,12 +141,26 @@ def _normalize_review_root(review_obj: Any) -> Any:
 
 def extract_ground_truth(review_obj: Any) -> str:
     """
-    Clean extraction for common PeerRead/ICLR review structure.
-    After normalization, we try:
-      - root['reviews'][i]['review']
-    Fallback: string collection.
+    Clean extraction for ICLR 2017 review structure.
+
+    Review files have:
+      reviews[i]["comments"]    — the actual review text
+      reviews[i]["is_meta_review"] / reviews[i]["IS_META_REVIEW"]  — meta-review flag
+      reviews[i]["TITLE"]       — sometimes "ICLR committee final decision" etc.
+
+    We ONLY want actual peer reviews:
+      - Skip meta-reviews
+      - Skip committee decisions
+      - Skip very short entries (Q&A, comments < 200 chars)
     """
     review_json = _normalize_review_root(review_obj)
+
+    # Titles that indicate non-review entries
+    SKIP_TITLES = {
+        "iclr committee final decision",
+        "final decision",
+        "source code",
+    }
 
     texts: List[str] = []
 
@@ -156,14 +170,33 @@ def extract_ground_truth(review_obj: Any) -> str:
 
     if isinstance(reviews, list):
         for r in reviews:
-            if isinstance(r, dict):
-                txt = r.get("review")
-                if isinstance(txt, str) and txt.strip():
-                    texts.append(txt.strip())
+            if not isinstance(r, dict):
+                continue
 
+            # Skip meta-reviews
+            if r.get("is_meta_review") or r.get("IS_META_REVIEW"):
+                continue
+
+            # Skip committee decisions and other non-review entries
+            title = (r.get("TITLE") or "").strip().lower()
+            if any(skip in title for skip in SKIP_TITLES):
+                continue
+
+            # Try 'comments' first (ICLR 2017 schema), then 'review' (other schemas)
+            txt = r.get("comments") or r.get("review") or ""
+            txt = txt.strip()
+
+            # Skip very short entries (Q&A, administrative comments)
+            if len(txt) < 200:
+                continue
+
+            texts.append(txt)
+
+    # Fallback: if no reviews found with the structured approach,
+    # try collecting all strings (handles unexpected schemas)
     if not texts:
         all_strings = _collect_strings(review_obj, max_items=300)
-        texts = all_strings[:200]
+        texts = [s for s in all_strings if len(s) >= 200][:5]
 
     gt = _clean_text("\n\n---\n\n".join(texts))
     return gt
