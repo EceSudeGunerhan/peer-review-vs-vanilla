@@ -32,25 +32,35 @@ def read_jsonl(path: Path):
                 yield json.loads(line)
 
 
-def resolve_winner(row: dict) -> str:
-    """Map A/B winner back to peer/vanilla/tie."""
+def resolve_winner(row: dict) -> str | None:
+    """Map A/B winner back to peer/vanilla. Returns None for ties/invalid (exclude)."""
     winner = (row.get("winner") or "").lower().strip()
     cond_A = row.get("cond_A")
     cond_B = row.get("cond_B")
 
-    if winner == "tie":
-        return "tie"
-    elif winner == "a":
+    if winner == "a":
         return cond_A
     elif winner == "b":
         return cond_B
     else:
-        return "tie"  # Parse errors → tie (conservative)
+        return None  # Tie or invalid → exclude from analysis
 
 
 def load_outcomes(path: Path) -> list[str]:
-    """Load judgment file → list of 'peer'/'vanilla'/'tie'."""
-    return [resolve_winner(row) for row in read_jsonl(path)]
+    """Load judgment file → list of 'peer'/'vanilla' (ties/invalid excluded)."""
+    return [
+        o for row in read_jsonl(path)
+        if (o := resolve_winner(row)) is not None
+    ]
+
+
+def load_outcomes_by_paper(path: Path) -> dict[str, str]:
+    """Load judgment file → {paper_id: 'peer'|'vanilla'} (ties/invalid excluded)."""
+    return {
+        row["paper_id"]: o
+        for row in read_jsonl(path)
+        if (o := resolve_winner(row)) is not None
+    }
 
 
 # ---- Statistical functions (no scipy dependency) ----
@@ -140,7 +150,7 @@ def cohens_kappa(outcomes_1: list[str], outcomes_2: list[str]) -> float:
     """
     Cohen's kappa for inter-judge agreement.
     Both lists must have same length and same paper order.
-    Categories: 'peer', 'vanilla', 'tie'
+    Categories: 'peer', 'vanilla'
     """
     n = len(outcomes_1)
     if n == 0:
@@ -183,34 +193,28 @@ def interpret_kappa(k: float) -> str:
 
 
 def analyze_single_judge(outcomes: list[str], judge_name: str) -> dict:
-    """Run all statistical tests for a single judge's outcomes."""
+    """Run all statistical tests for a single judge's outcomes (win/loss only)."""
     counts = Counter(outcomes)
     total = len(outcomes)
     peer_wins = counts.get("peer", 0)
     vanilla_wins = counts.get("vanilla", 0)
-    ties = counts.get("tie", 0)
-    non_tie = peer_wins + vanilla_wins
 
-    # Binomial test (excluding ties)
-    p_val = binomial_test_two_sided(peer_wins, non_tie, 0.5) if non_tie > 0 else 1.0
+    # Binomial test
+    p_val = binomial_test_two_sided(peer_wins, total, 0.5) if total > 0 else 1.0
 
-    # Wilson CI for peer win rate (excluding ties)
-    ci_low, ci_high = wilson_ci(peer_wins, non_tie) if non_tie > 0 else (0.0, 1.0)
+    # Wilson CI for peer win rate
+    ci_low, ci_high = wilson_ci(peer_wins, total) if total > 0 else (0.0, 1.0)
 
     # Cohen's h (peer rate vs 0.5)
-    peer_rate = peer_wins / non_tie if non_tie > 0 else 0.5
-    h = cohens_h(peer_rate, 0.5) if non_tie > 0 else 0.0
+    peer_rate = peer_wins / total if total > 0 else 0.5
+    h = cohens_h(peer_rate, 0.5) if total > 0 else 0.0
 
     return {
         "judge": judge_name,
         "total_examples": total,
         "peer_wins": peer_wins,
         "vanilla_wins": vanilla_wins,
-        "ties": ties,
-        "peer_win_rate_total": peer_wins / total if total else 0.0,
-        "vanilla_win_rate_total": vanilla_wins / total if total else 0.0,
-        "tie_rate": ties / total if total else 0.0,
-        "peer_win_rate_non_tie": peer_rate,
+        "peer_win_rate": peer_rate,
         "binomial_p_value": p_val,
         "significant_at_005": p_val < 0.05,
         "ci_95_lower": ci_low,
@@ -229,28 +233,32 @@ def run_tests() -> dict:
     j1_path = JUDGMENTS_PAIRWISE_JUDGE1_JSONL
     if j1_path.exists():
         outcomes_1 = load_outcomes(j1_path)
+        by_paper_1 = load_outcomes_by_paper(j1_path)
         stats_1 = analyze_single_judge(outcomes_1, "judge1_claude")
         results["judges"].append(stats_1)
     else:
-        outcomes_1 = None
+        by_paper_1 = None
 
     # Judge 2
     j2_path = JUDGMENTS_PAIRWISE_JUDGE2_JSONL
     if j2_path.exists():
         outcomes_2 = load_outcomes(j2_path)
+        by_paper_2 = load_outcomes_by_paper(j2_path)
         stats_2 = analyze_single_judge(outcomes_2, "judge2_gpt")
         results["judges"].append(stats_2)
     else:
-        outcomes_2 = None
+        by_paper_2 = None
 
-    # Inter-judge agreement
-    if outcomes_1 is not None and outcomes_2 is not None:
-        # Align by paper_id order (both should be sorted same way)
-        kappa = cohens_kappa(outcomes_1, outcomes_2)
+    # Inter-judge agreement (align by paper_id)
+    if by_paper_1 is not None and by_paper_2 is not None:
+        common = sorted(set(by_paper_1) & set(by_paper_2))
+        o1 = [by_paper_1[p] for p in common]
+        o2 = [by_paper_2[p] for p in common]
+        kappa = cohens_kappa(o1, o2)
         results["inter_judge"] = {
             "cohens_kappa": kappa,
             "agreement_level": interpret_kappa(kappa),
-            "n_papers_compared": min(len(outcomes_1), len(outcomes_2)),
+            "n_papers_compared": len(common),
         }
 
     return results
@@ -272,10 +280,9 @@ def write_results(results: dict):
             f.write(f"## {judge['judge']}\n\n")
             f.write(f"- Total examples: {judge['total_examples']}\n")
             f.write(f"- Peer wins: {judge['peer_wins']}\n")
-            f.write(f"- Vanilla wins: {judge['vanilla_wins']}\n")
-            f.write(f"- Ties: {judge['ties']}\n\n")
-            f.write(f"### Win Rate (excluding ties)\n\n")
-            f.write(f"- Peer: {judge['peer_win_rate_non_tie']:.3f}\n")
+            f.write(f"- Vanilla wins: {judge['vanilla_wins']}\n\n")
+            f.write(f"### Win Rate\n\n")
+            f.write(f"- Peer: {judge['peer_win_rate']:.3f}\n")
             f.write(f"- 95% CI: [{judge['ci_95_lower']:.3f}, {judge['ci_95_upper']:.3f}]\n\n")
             f.write(f"### Significance\n\n")
             f.write(f"- Binomial test p-value: {judge['binomial_p_value']:.6f}\n")

@@ -185,7 +185,7 @@ def main():
                     parsed = json.loads(cleaned.strip())
                 except Exception as e:
                     parsed = {
-                        "winner": "tie",
+                        "winner": None,
                         "reasoning": f"ERROR: {str(e)[:200]}",
                     }
 
@@ -200,6 +200,13 @@ def main():
 
             winner = parsed.get("winner")
             reasoning = parsed.get("reasoning")
+
+            # Skip writing if we still don't have a valid A/B winner (no ties in output)
+            if (winner or "").strip().lower() not in ("a", "b"):
+                logger.warning(
+                    f"Paper {paper_id}: skipping (no valid A/B after retries)"
+                )
+                continue
 
             result = {
                 "paper_id": paper_id,

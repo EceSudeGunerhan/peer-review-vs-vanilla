@@ -30,24 +30,19 @@ def read_jsonl(path: Path):
 
 
 def summarize_judgments(in_path: Path, judge_label: str, judge_model: str):
-    """Summarize a single judge's results to JSON, CSV, and MD."""
+    """Summarize a single judge's results to JSON, CSV, and MD (win/loss only, no ties)."""
     if not in_path.exists():
         raise FileNotFoundError(f"Judgments not found: {in_path}")
 
-    total = 0
     peer_wins = 0
     vanilla_wins = 0
-    ties = 0
 
     for row in read_jsonl(in_path):
-        total += 1
         winner = (row.get("winner") or "").lower().strip()
         cond_A = row.get("cond_A")
         cond_B = row.get("cond_B")
 
-        if winner == "tie":
-            ties += 1
-        elif winner == "a":
+        if winner == "a":
             if cond_A == "peer":
                 peer_wins += 1
             elif cond_A == "vanilla":
@@ -57,8 +52,11 @@ def summarize_judgments(in_path: Path, judge_label: str, judge_model: str):
                 peer_wins += 1
             elif cond_B == "vanilla":
                 vanilla_wins += 1
+        # Ties/invalid excluded
 
-    non_tie = max(total - ties, 1)
+    total = peer_wins + vanilla_wins
+    peer_rate = peer_wins / total if total else 0.0
+    vanilla_rate = vanilla_wins / total if total else 0.0
 
     summary = {
         "judge": judge_label,
@@ -71,12 +69,8 @@ def summarize_judgments(in_path: Path, judge_label: str, judge_model: str):
         "num_examples": total,
         "peer_wins": peer_wins,
         "vanilla_wins": vanilla_wins,
-        "ties": ties,
-        "peer_win_rate_total": peer_wins / total if total else 0.0,
-        "vanilla_win_rate_total": vanilla_wins / total if total else 0.0,
-        "tie_rate_total": ties / total if total else 0.0,
-        "peer_win_rate_non_tie": peer_wins / non_tie if non_tie else 0.0,
-        "vanilla_win_rate_non_tie": vanilla_wins / non_tie if non_tie else 0.0,
+        "peer_win_rate": peer_rate,
+        "vanilla_win_rate": vanilla_rate,
     }
 
     suffix = f"_{judge_label}"
@@ -89,16 +83,9 @@ def summarize_judgments(in_path: Path, judge_label: str, judge_model: str):
     # CSV
     csv_path = REPORTS_DIR / f"pairwise_summary{suffix}.csv"
     with csv_path.open("w", encoding="utf-8") as f:
-        f.write("condition,wins,win_rate_total,win_rate_non_tie\n")
-        f.write(
-            f"peer,{peer_wins},{summary['peer_win_rate_total']},"
-            f"{summary['peer_win_rate_non_tie']}\n"
-        )
-        f.write(
-            f"vanilla,{vanilla_wins},{summary['vanilla_win_rate_total']},"
-            f"{summary['vanilla_win_rate_non_tie']}\n"
-        )
-        f.write(f"tie,{ties},{summary['tie_rate_total']},\n")
+        f.write("condition,wins,win_rate\n")
+        f.write(f"peer,{peer_wins},{peer_rate}\n")
+        f.write(f"vanilla,{vanilla_wins},{vanilla_rate}\n")
 
     # Markdown
     md_path = REPORTS_DIR / f"pairwise_summary{suffix}.md"
@@ -109,15 +96,10 @@ def summarize_judgments(in_path: Path, judge_label: str, judge_model: str):
         f.write(f"**Timestamp**: {summary['timestamp']}  \n\n")
         f.write(f"- Total examples: {total}\n")
         f.write(f"- Peer wins: {peer_wins}\n")
-        f.write(f"- Vanilla wins: {vanilla_wins}\n")
-        f.write(f"- Ties: {ties}\n\n")
-        f.write("## Win rates (over all examples)\n\n")
-        f.write(f"- Peer: {summary['peer_win_rate_total']:.3f}\n")
-        f.write(f"- Vanilla: {summary['vanilla_win_rate_total']:.3f}\n")
-        f.write(f"- Tie: {summary['tie_rate_total']:.3f}\n\n")
-        f.write("## Win rates (excluding ties)\n\n")
-        f.write(f"- Peer: {summary['peer_win_rate_non_tie']:.3f}\n")
-        f.write(f"- Vanilla: {summary['vanilla_win_rate_non_tie']:.3f}\n")
+        f.write(f"- Vanilla wins: {vanilla_wins}\n\n")
+        f.write("## Win rates\n\n")
+        f.write(f"- Peer: {peer_rate:.3f}\n")
+        f.write(f"- Vanilla: {vanilla_rate:.3f}\n")
 
     logger.info(f"Wrote: {json_path}")
     logger.info(f"Wrote: {csv_path}")

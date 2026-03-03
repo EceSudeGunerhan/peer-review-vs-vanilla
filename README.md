@@ -59,7 +59,7 @@ Both conditions use `openai/gpt-5.2` as the generator with temperature 0.4. Inva
 4. **Alignment with Ground Truth** — How closely do criticisms, strengths, and methodological comments match the human review? (PRIMARY)
 5. **Actionability** — Are suggestions constructive and revision-worthy?
 
-**Forced choice:** No ties—the judge must pick A or B. If the model returns "tie", it is retried up to 3 times. Multi-reviewer ground truth: prefer the machine review that best matches the overall consensus.
+**Forced choice (win/loss only):** No ties anywhere. The judge must pick A or B. Invalid/tie responses are retried up to 3 times; if still invalid, that paper is skipped. Summaries and statistical tests use only win/loss outcomes. Multi-reviewer ground truth: prefer the machine review that best matches the overall consensus.
 
 ### Statistical Tests
 
