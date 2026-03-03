@@ -1,6 +1,6 @@
 # Peer-Review Skill vs Vanilla: LLM-Generated Scientific Review Quality
 
-This project investigates whether injecting a **peer-review skill** (`peer-review-skills/REVIEW_SKILL.md`) into an LLM improves the quality of automated scientific reviews compared to a **vanilla prompt** (same output format, no skill injection).
+This project investigates whether injecting a **peer-review skill** (`peer-review-skills/REVIEW_SKILL_ML.md`) into an LLM improves the quality of automated scientific reviews compared to a **vanilla prompt** (same output format, no skill injection).
 
 Quality is measured using **LLM-as-a-Judge pairwise comparison** against real ICLR 2017 human reviews, with a **multi-judge design** (two independent judges) and **statistical significance testing**.
 
@@ -30,11 +30,12 @@ python run_experiment.py --status # Check progress
 
 | | Peer-Review Skill | Vanilla Baseline |
 |---|---|---|
-| **Prompt** | Paper + SKILL.md criteria injected | Paper only |
+| **Prompt** | Paper + `REVIEW_SKILL_ML.md` criteria injected | Paper only |
 | **Output format** | 7 sections (Summary → Recommendation) | 7 sections (identical) |
-| **Only difference** | Skill knowledge injected | No skill knowledge |
+| **Max output tokens** | 5000 | 3000 |
+| **Only difference** | ML conference skill knowledge injected | No skill knowledge |
 
-Both conditions use `openai/gpt-5.2` as the generator with temperature 0.4.
+Both conditions use `openai/gpt-5.2` as the generator with temperature 0.4. Invalid responses (e.g. model claims "text was missing") are retried up to 3 times before recording an error.
 
 ### Multi-Judge Design
 
@@ -50,11 +51,15 @@ Both conditions use `openai/gpt-5.2` as the generator with temperature 0.4.
 
 ### Judge Evaluation Criteria (5 Dimensions)
 
+**Primary criterion:** Alignment with ground truth (dimension 4). "Closer" means overlap of main criticisms/strengths with the human review, similar significance assessment, and similar recommendation direction. Format differences are ignored.
+
 1. **Content Coverage** — Does the review address the paper's key contributions?
 2. **Critical Depth** — Does it identify strengths AND weaknesses with reasoning?
 3. **Specificity** — Does it reference specific paper elements (methods, equations)?
-4. **Alignment with Ground Truth** — How closely does it match the human review?
+4. **Alignment with Ground Truth** — How closely do criticisms, strengths, and methodological comments match the human review? (PRIMARY)
 5. **Actionability** — Are suggestions constructive and revision-worthy?
+
+Ties are used only when the difference is marginal. Multi-reviewer ground truth: prefer the machine review that best matches the overall consensus.
 
 ### Statistical Tests
 
@@ -81,7 +86,7 @@ python run_experiment.py
 
 *Step 0 runs automatically only if `pairs.jsonl` is missing.
 
-All steps support **resume** — on restart, already-processed papers are skipped. Ctrl+C is safe.
+All steps support **resume** — on restart, already-processed papers are skipped. Ctrl+C is safe. Generation retries invalid responses up to 3× per paper; error rows are cleaned at the end so failed papers are retried on the next run.
 
 ---
 
@@ -106,8 +111,10 @@ All steps support **resume** — on restart, already-processed papers are skippe
 | `JUDGE_MODEL_NAME_2` | `openai/gpt-5.2` |
 | `GEN_TEMPERATURE` | 0.4 |
 | `JUDGE_TEMPERATURE` | 0.0 |
-| `GEN_MAX_OUTPUT_TOKENS` | 3000 |
+| `GEN_MAX_OUTPUT_TOKENS` | 3000 (vanilla) |
+| `GEN_MAX_OUTPUT_TOKENS_PEER` | 5000 (peer) |
 | `JUDGE_MAX_OUTPUT_TOKENS` | 1000 |
+| `GEN_MAX_RETRIES_INVALID` | 3 (retries when model claims text missing) |
 | `RANDOM_SEED` | 42 |
 | Paper truncation | None (full text) |
 | A/B assignment | Deterministic per paper (hashlib.md5) |
@@ -120,9 +127,7 @@ All steps support **resume** — on restart, already-processed papers are skippe
 peer-review-vs-vanilla/
 ├── run_experiment.py               # Master experiment runner
 ├── peer-review-skills/
-│   ├── SKILL.md                    # Full skill (original)
-│   ├── REVIEW_SKILL.md             # Trimmed for paper review only
-│   └── references/                 # Reporting standards, common issues
+│   └── REVIEW_SKILL_ML.md          # ML conference skill (used for peer condition)
 ├── prompts/
 │   ├── peer_review_generation.txt  # Skill-injected prompt
 │   ├── vanilla_review.txt          # Fair baseline (same 7-section format)
