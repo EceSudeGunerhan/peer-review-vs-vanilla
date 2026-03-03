@@ -23,17 +23,17 @@ Important rules:
 - Focus on substantive overlap and quality, not superficial wording or structure.
 - Do NOT let length alone decide; a longer review is not always better.
 - The ground truth may contain multiple reviewers; prefer the machine review that best matches the overall consensus of human opinions.
-- Use "tie" only when the difference is marginal and you would not confidently choose one over the other.
+- You MUST choose one winner (A or B). No ties—pick the review that is at least marginally closer to the ground truth.
 
 You MUST:
 - Return ONLY valid JSON.
-- Use one of: "A", "B", "tie" for the winner.
+- Use exactly one of: "A" or "B" for the winner (no ties).
 - Always include a non-empty reasoning (2-4 sentences covering the dimensions above).
 - Do not include extra text outside the JSON.
 
 Output format:
 {
-  "winner": "A" | "B" | "tie",
+  "winner": "A" | "B",
   "reasoning": "2-4 sentence explanation referencing the evaluation dimensions"
 }
 

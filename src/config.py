@@ -86,6 +86,8 @@ MAX_RETRIES = 5
 RETRY_DELAY = 2.0  # Base delay in seconds (exponential backoff)
 # Retries when model claims "text was missing" (invalid escape response)
 GEN_MAX_RETRIES_INVALID = 3
+# Retries when judge returns "tie" (forced choice: must pick A or B)
+JUDGE_MAX_RETRIES_TIE = 2
 
 
 def ensure_dirs():

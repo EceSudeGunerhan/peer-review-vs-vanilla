@@ -59,7 +59,7 @@ Both conditions use `openai/gpt-5.2` as the generator with temperature 0.4. Inva
 4. **Alignment with Ground Truth** — How closely do criticisms, strengths, and methodological comments match the human review? (PRIMARY)
 5. **Actionability** — Are suggestions constructive and revision-worthy?
 
-Ties are used only when the difference is marginal. Multi-reviewer ground truth: prefer the machine review that best matches the overall consensus.
+**Forced choice:** No ties—the judge must pick A or B. If the model returns "tie", it is retried up to 3 times. Multi-reviewer ground truth: prefer the machine review that best matches the overall consensus.
 
 ### Statistical Tests
 
@@ -115,6 +115,7 @@ All steps support **resume** — on restart, already-processed papers are skippe
 | `GEN_MAX_OUTPUT_TOKENS_PEER` | 5000 (peer) |
 | `JUDGE_MAX_OUTPUT_TOKENS` | 1000 |
 | `GEN_MAX_RETRIES_INVALID` | 3 (retries when model claims text missing) |
+| `JUDGE_MAX_RETRIES_TIE` | 2 (retries when judge returns tie; forced A/B choice) |
 | `RANDOM_SEED` | 42 |
 | Paper truncation | None (full text) |
 | A/B assignment | Deterministic per paper (hashlib.md5) |

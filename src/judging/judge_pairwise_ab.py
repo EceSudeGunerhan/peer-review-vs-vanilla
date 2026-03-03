@@ -17,6 +17,7 @@ from src.config import (
     JUDGE_MAX_OUTPUT_TOKENS,
     JUDGE_PAPER_MAX_CHARS,
     JUDGE_GT_MAX_CHARS,
+    JUDGE_MAX_RETRIES_TIE,
     RANDOM_SEED,
     PROJECT_ROOT,
     ensure_dirs,
@@ -167,24 +168,35 @@ def main():
                 .replace("{review_B}", review_B)
             )
 
-            try:
-                judge_out = client.generate(
-                    prompt,
-                    temperature=JUDGE_TEMPERATURE,
-                    max_output_tokens=JUDGE_MAX_OUTPUT_TOKENS,
-                )
-                # Strip markdown code fences if present
-                cleaned = judge_out.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("\n", 1)[1]
-                if cleaned.endswith("```"):
-                    cleaned = cleaned.rsplit("```", 1)[0]
-                parsed = json.loads(cleaned.strip())
-            except Exception as e:
-                parsed = {
-                    "winner": "tie",
-                    "reasoning": f"ERROR: {str(e)[:200]}",
-                }
+            parsed = None
+            for attempt in range(JUDGE_MAX_RETRIES_TIE + 1):
+                try:
+                    judge_out = client.generate(
+                        prompt,
+                        temperature=JUDGE_TEMPERATURE,
+                        max_output_tokens=JUDGE_MAX_OUTPUT_TOKENS,
+                    )
+                    # Strip markdown code fences if present
+                    cleaned = judge_out.strip()
+                    if cleaned.startswith("```"):
+                        cleaned = cleaned.split("\n", 1)[1]
+                    if cleaned.endswith("```"):
+                        cleaned = cleaned.rsplit("```", 1)[0]
+                    parsed = json.loads(cleaned.strip())
+                except Exception as e:
+                    parsed = {
+                        "winner": "tie",
+                        "reasoning": f"ERROR: {str(e)[:200]}",
+                    }
+
+                winner = (parsed.get("winner") or "").strip().lower()
+                if winner in ("a", "b"):
+                    break
+                if attempt < JUDGE_MAX_RETRIES_TIE:
+                    logger.warning(
+                        f"Paper {paper_id}: judge returned '{winner}' "
+                        f"(attempt {attempt + 1}/{JUDGE_MAX_RETRIES_TIE + 1}), retrying..."
+                    )
 
             winner = parsed.get("winner")
             reasoning = parsed.get("reasoning")
