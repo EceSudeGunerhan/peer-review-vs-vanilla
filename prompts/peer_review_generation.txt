@@ -20,9 +20,9 @@ IMPORTANT:
 Write a structured peer-review report in this exact format:
 
 1) Summary (1 paragraph; briefly describe what the paper does and its main claims/results)
-2) Strengths (3-6 bullet points; specific, paper-grounded)
-3) Weaknesses (3-6 bullet points; specific, paper-grounded)
+2) Strengths (3-4 bullet points; specific, paper-grounded)
+3) Weaknesses (3-4 bullet points; specific, paper-grounded)
 4) Major Comments (numbered; focus on validity/significance/reproducibility; include actionable suggestions)
 5) Minor Comments (numbered; clarity, missing details, presentation, small issues)
-6) Questions for Authors (3-8 questions that would clarify or strengthen the work)
+6) Questions for Authors (3-6 questions that would clarify or strengthen the work)
 7) Recommendation (one of: Accept / Weak Accept / Weak Reject / Reject) + 2-3 sentence justification

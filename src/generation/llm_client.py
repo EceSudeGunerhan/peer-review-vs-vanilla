@@ -1,6 +1,7 @@
 # src/generation/llm_client.py
 
 import os
+import json
 import time
 import logging
 import requests
@@ -44,6 +45,7 @@ class LLMClient:
             ],
             "temperature": temperature,
             "max_tokens": max_output_tokens,
+            "reasoning": {"effort": "none"},
         }
 
         last_error = None
@@ -61,10 +63,55 @@ class LLMClient:
 
                 if response.status_code == 200:
                     data = response.json()
-                    content = data["choices"][0]["message"]["content"].strip()
+
+                    # Handle missing/malformed response structure
+                    choices = data.get("choices", [])
+                    if not choices:
+                        delay = RETRY_DELAY * (2 ** (attempt - 1))
+                        logger.warning(
+                            f"[{self.model_name}] No choices in response "
+                            f"(attempt {attempt}/{MAX_RETRIES}). "
+                            f"Raw: {json.dumps(data)[:300]}. "
+                            f"Retrying in {delay:.1f}s..."
+                        )
+                        last_error = RuntimeError(
+                            f"No choices in response: {json.dumps(data)[:200]}"
+                        )
+                        time.sleep(delay)
+                        continue
+
+                    # OpenRouter sometimes returns errors INSIDE choices
+                    # with HTTP 200 (e.g., model_not_found, access denied)
+                    choice_error = choices[0].get("error")
+                    if choice_error:
+                        err_msg = choice_error.get("message", str(choice_error))
+                        err_code = choice_error.get("code", "unknown")
+                        raise RuntimeError(
+                            f"OpenRouter model error (code={err_code}): {err_msg}"
+                        )
+
+                    content = (
+                        choices[0]
+                        .get("message", {})
+                        .get("content", "")
+                        or ""
+                    ).strip()
 
                     if not content:
-                        raise RuntimeError("Empty response from model.")
+                        # Check for finish_reason clues
+                        finish = choices[0].get("finish_reason", "unknown")
+                        delay = RETRY_DELAY * (2 ** (attempt - 1))
+                        logger.warning(
+                            f"[{self.model_name}] Empty content "
+                            f"(finish_reason={finish}, "
+                            f"attempt {attempt}/{MAX_RETRIES}). "
+                            f"Retrying in {delay:.1f}s..."
+                        )
+                        last_error = RuntimeError(
+                            f"Empty response (finish_reason={finish})"
+                        )
+                        time.sleep(delay)
+                        continue
 
                     logger.info(
                         f"[{self.model_name}] OK in {latency:.1f}s "

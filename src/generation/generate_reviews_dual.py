@@ -9,8 +9,10 @@ from src.config import (
     GEN_MODEL_NAME,
     GEN_TEMPERATURE,
     GEN_MAX_OUTPUT_TOKENS,
+    GEN_MAX_OUTPUT_TOKENS_PEER,
+    GEN_MAX_RETRIES_INVALID,
     GEN_PAPER_MAX_CHARS,
-    SKILL_PATH,
+    SKILL_PATH_ML,
     PROJECT_ROOT,
     ensure_dirs,
 )
@@ -54,8 +56,8 @@ def load_prompt(path: Path) -> str:
 
 
 def load_peer_review_skill_text() -> str:
-    """Load skill instructions from peer-review-skills/SKILL.md."""
-    with open(SKILL_PATH, "r", encoding="utf-8") as f:
+    """Load ML conference skill from peer-review-skills/REVIEW_SKILL_ML.md."""
+    with open(SKILL_PATH_ML, "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -159,13 +161,20 @@ def main():
                         .replace("{peer_review_skill}", peer_skill_text)
                         .replace("{paper_text}", paper_text_trunc)
                     )
-                    review_peer = client.generate(
-                        prompt_peer,
-                        temperature=GEN_TEMPERATURE,
-                        max_output_tokens=GEN_MAX_OUTPUT_TOKENS,
-                    )
-
-                    if looks_invalid(review_peer):
+                    review_peer = None
+                    for attempt in range(GEN_MAX_RETRIES_INVALID):
+                        review_peer = client.generate(
+                            prompt_peer,
+                            temperature=GEN_TEMPERATURE,
+                            max_output_tokens=GEN_MAX_OUTPUT_TOKENS_PEER,
+                        )
+                        if not looks_invalid(review_peer):
+                            break
+                        logger.warning(
+                            f"Paper {paper_id} peer: invalid (attempt "
+                            f"{attempt + 1}/{GEN_MAX_RETRIES_INVALID}), retrying..."
+                        )
+                    else:
                         raise RuntimeError(
                             "INVALID: model claimed text was missing."
                         )
@@ -199,13 +208,20 @@ def main():
                     prompt_vanilla = template_vanilla.replace(
                         "{paper_text}", paper_text_trunc
                     )
-                    review_vanilla = client.generate(
-                        prompt_vanilla,
-                        temperature=GEN_TEMPERATURE,
-                        max_output_tokens=GEN_MAX_OUTPUT_TOKENS,
-                    )
-
-                    if looks_invalid(review_vanilla):
+                    review_vanilla = None
+                    for attempt in range(GEN_MAX_RETRIES_INVALID):
+                        review_vanilla = client.generate(
+                            prompt_vanilla,
+                            temperature=GEN_TEMPERATURE,
+                            max_output_tokens=GEN_MAX_OUTPUT_TOKENS,
+                        )
+                        if not looks_invalid(review_vanilla):
+                            break
+                        logger.warning(
+                            f"Paper {paper_id} vanilla: invalid (attempt "
+                            f"{attempt + 1}/{GEN_MAX_RETRIES_INVALID}), retrying..."
+                        )
+                    else:
                         raise RuntimeError(
                             "INVALID: model claimed text was missing."
                         )
@@ -242,6 +258,45 @@ def main():
 
     logger.info(f"Done. Peer → {REVIEWS_PEER_JSONL}")
     logger.info(f"Done. Vanilla → {REVIEWS_VANILLA_JSONL}")
+
+    # Clean up: remove error entries for papers that now have a success
+    clean_errors(REVIEWS_PEER_JSONL)
+    clean_errors(REVIEWS_VANILLA_JSONL)
+
+
+def clean_errors(path: Path) -> int:
+    """
+    Remove error-only entries from a JSONL file.
+    - If a paper has both an error and a success entry, keep only the success.
+    - If a paper has only error entries, remove them (so resume will retry).
+    Returns the number of error entries removed.
+    """
+    if not path.exists():
+        return 0
+
+    rows = list(read_jsonl(path))
+    if not rows:
+        return 0
+
+    # Find which paper_ids have at least one success
+    successful_ids = {r["paper_id"] for r in rows if r.get("error") is None}
+
+    # Keep: all successes + errors for papers with NO success (retry later)
+    # Actually: remove ALL error entries. Papers with success keep the success.
+    # Papers with only errors get cleaned out → resume retries them.
+    clean = [r for r in rows if r.get("error") is None]
+    removed = len(rows) - len(clean)
+
+    if removed > 0:
+        with open(path, "w", encoding="utf-8") as f:
+            for r in clean:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        logger.info(
+            f"Cleaned {path.name}: removed {removed} error entries, "
+            f"kept {len(clean)} successes"
+        )
+
+    return removed
 
 
 if __name__ == "__main__":

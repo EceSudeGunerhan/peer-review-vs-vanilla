@@ -43,6 +43,7 @@ JUDGMENTS_PAIRWISE_JSONL = JUDGMENTS_PAIRWISE_JUDGE1_JSONL
 
 # -------- Peer-review skill --------
 SKILL_PATH = PROJECT_ROOT / "peer-review-skills" / "REVIEW_SKILL.md"
+SKILL_PATH_ML = PROJECT_ROOT / "peer-review-skills" / "REVIEW_SKILL_ML.md"
 
 # -------- Data limits --------
 DEFAULT_PAPER_MAX_CHARS = 50000
@@ -76,12 +77,15 @@ GEN_TEMPERATURE = 0.4   # Slightly higher for natural, diverse reviews
 JUDGE_TEMPERATURE = 0.0  # Deterministic judging (standard in LLM-judge literature)
 
 # -------- Token limits --------
-GEN_MAX_OUTPUT_TOKENS = 3000   # Was 1500 — truncated 7-section skill reviews (critical fix)
+GEN_MAX_OUTPUT_TOKENS = 3000   # Vanilla baseline; peer uses GEN_MAX_OUTPUT_TOKENS_PEER
+GEN_MAX_OUTPUT_TOKENS_PEER = 5000  # Peer skill produces longer reviews; reduce truncation
 JUDGE_MAX_OUTPUT_TOKENS = 1000
 
 # -------- Retry / robustness --------
-MAX_RETRIES = 3
+MAX_RETRIES = 5
 RETRY_DELAY = 2.0  # Base delay in seconds (exponential backoff)
+# Retries when model claims "text was missing" (invalid escape response)
+GEN_MAX_RETRIES_INVALID = 3
 
 
 def ensure_dirs():

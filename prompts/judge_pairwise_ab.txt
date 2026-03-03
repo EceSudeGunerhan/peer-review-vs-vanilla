@@ -8,18 +8,22 @@ You will be given:
 Your task:
 Decide which machine-generated review (A or B) is **closer** to the ground-truth human review.
 
-Evaluate across these dimensions:
+"Closer" means: overlap of main criticisms and strengths with the human review, similar assessment of the contribution's significance, and similar overall recommendation direction (accept vs reject). Compare content and substance—ignore format differences (human reviews may be freeform; machine reviews use a fixed structure).
+
+**Primary criterion:** Alignment with ground truth (dimension 4). When dimensions conflict, prioritize which review better matches the human reviewers' judgments.
+
+Supporting dimensions:
 1. **Content Coverage** — Does the review address the paper's key contributions, claims, and results?
 2. **Critical Depth** — Does it identify genuine strengths AND weaknesses with substantive reasoning?
 3. **Specificity** — Does it reference specific elements from the paper (methods, datasets, experiments, equations), or is it generic?
-4. **Alignment with Ground Truth** — How closely do the criticisms, strengths, and methodological comments match those in the human review?
+4. **Alignment with Ground Truth** — How closely do the criticisms, strengths, and methodological comments match those in the human review? (PRIMARY)
 5. **Actionability** — Are suggestions constructive, specific, and revision-worthy?
 
 Important rules:
-- Focus on substantive overlap and quality, not superficial wording.
+- Focus on substantive overlap and quality, not superficial wording or structure.
 - Do NOT let length alone decide; a longer review is not always better.
-- Consider whether each review demonstrates genuine understanding of the paper.
-- If both are approximately equally close to the ground truth, you may answer "tie".
+- The ground truth may contain multiple reviewers; prefer the machine review that best matches the overall consensus of human opinions.
+- Use "tie" only when the difference is marginal and you would not confidently choose one over the other.
 
 You MUST:
 - Return ONLY valid JSON.
