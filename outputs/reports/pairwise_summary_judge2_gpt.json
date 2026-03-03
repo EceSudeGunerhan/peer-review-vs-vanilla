@@ -1,0 +1,14 @@
+{
+  "judge": "judge2_gpt",
+  "judge_model": "openai/gpt-5.2",
+  "gen_model": "openai/gpt-5.2",
+  "gen_temperature": 0.4,
+  "gen_max_tokens": 3000,
+  "judge_temperature": 0.0,
+  "timestamp": "2026-03-03T16:50:33.495581+00:00",
+  "num_examples": 349,
+  "peer_wins": 199,
+  "vanilla_wins": 150,
+  "peer_win_rate": 0.5702005730659025,
+  "vanilla_win_rate": 0.4297994269340974
+}

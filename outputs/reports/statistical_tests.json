@@ -1,0 +1,35 @@
+{
+  "judges": [
+    {
+      "judge": "judge1_claude",
+      "total_examples": 348,
+      "peer_wins": 229,
+      "vanilla_wins": 119,
+      "peer_win_rate": 0.6580459770114943,
+      "binomial_p_value": 3.8366032573122766e-09,
+      "significant_at_005": true,
+      "ci_95_lower": 0.6067231072790207,
+      "ci_95_upper": 0.7059175810307188,
+      "cohens_h": 0.32160739940033434,
+      "effect_size": "small"
+    },
+    {
+      "judge": "judge2_gpt",
+      "total_examples": 349,
+      "peer_wins": 199,
+      "vanilla_wins": 150,
+      "peer_win_rate": 0.5702005730659025,
+      "binomial_p_value": 0.010086775664996273,
+      "significant_at_005": true,
+      "ci_95_lower": 0.5177755366470275,
+      "ci_95_upper": 0.6210969772515603,
+      "cohens_h": 0.14086656243872886,
+      "effect_size": "negligible"
+    }
+  ],
+  "inter_judge": {
+    "cohens_kappa": 0.5665201896128161,
+    "agreement_level": "moderate",
+    "n_papers_compared": 348
+  }
+}

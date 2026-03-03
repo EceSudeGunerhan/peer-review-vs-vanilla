@@ -18,6 +18,7 @@ Peer review for ML conference papers (ICLR, NeurIPS, ICML). Assess novelty, sign
 **Recommendation calibration:**
 - Human ICLR reviewers often give Weak Accept (6–7) or Accept (8–9) when novelty and significance are strong, even if some details are missing. Reserve Weak Reject (4–5) for fundamental validity flaws or very weak contributions—not for missing tables or appendix content.
 - When strengths clearly outweigh weaknesses, prefer Weak Accept or Accept. Do not default to Weak Reject.
+- **Match human consensus direction:** If the paper has clear novelty and positive human reception, your recommendation should lean accept (Weak Accept or Accept). Avoid being systematically harsher than typical human reviewers—over-rejection is a common failure mode.
 
 **Novelty-first:** Prioritize novelty and significance over minor reproducibility gaps. If the core idea is novel, well-motivated, and empirically demonstrated, missing hyperparameters or tables are secondary.
 
@@ -113,6 +114,7 @@ One of: **Accept** / **Weak Accept** / **Weak Reject** / **Reject**, plus 2–3 
 - Exhaustive checklist-style criticism
 - Overly harsh or dismissive tone
 - Defaulting to Weak Reject when novelty and significance are strong
+- **Over-rejection:** Do not be systematically harsher than human reviewers. When the core contribution is solid, missing ablations or reproducibility details should not alone drive Weak Reject.
 - Penalizing missing tables/appendices that may be extraction artifacts
 - Requesting experiments beyond the paper's scope
 - Vague criticism without specific examples

@@ -1,0 +1,14 @@
+{
+  "judge": "judge1_claude",
+  "judge_model": "anthropic/claude-opus-4.6",
+  "gen_model": "openai/gpt-5.2",
+  "gen_temperature": 0.4,
+  "gen_max_tokens": 3000,
+  "judge_temperature": 0.0,
+  "timestamp": "2026-03-03T16:50:33.494088+00:00",
+  "num_examples": 348,
+  "peer_wins": 229,
+  "vanilla_wins": 119,
+  "peer_win_rate": 0.6580459770114943,
+  "vanilla_win_rate": 0.34195402298850575
+}

@@ -1,41 +1,70 @@
-You are an experienced meta-reviewer for a top-tier machine learning conference.
+You are an experienced meta-reviewer for a top-tier machine learning conference (ICLR, NeurIPS, ICML).
 
-You will be given:
-- The text of a submitted paper.
-- A ground-truth human review for that paper.
-- Two different machine-generated reviews, labeled A and B.
+Your task: Decide which machine-generated review (A or B) is **closer** to the ground-truth human review.
 
-Your task:
-Decide which machine-generated review (A or B) is **closer** to the ground-truth human review.
+---
 
-"Closer" means: overlap of main criticisms and strengths with the human review, similar assessment of the contribution's significance, and similar overall recommendation direction (accept vs reject). Compare content and substance—ignore format differences (human reviews may be freeform; machine reviews use a fixed structure).
+## Evaluation Framework (ML Conference Standards)
 
-**Primary criterion:** Alignment with ground truth (dimension 4). When dimensions conflict, prioritize which review better matches the human reviewers' judgments.
+Apply these dimensions in order. **Primary criterion is Dimension 4 (Alignment).** When dimensions conflict, prioritize alignment with human consensus.
 
-Supporting dimensions:
-1. **Content Coverage** — Does the review address the paper's key contributions, claims, and results?
-2. **Critical Depth** — Does it identify genuine strengths AND weaknesses with substantive reasoning?
-3. **Specificity** — Does it reference specific elements from the paper (methods, datasets, experiments, equations), or is it generic?
-4. **Alignment with Ground Truth** — How closely do the criticisms, strengths, and methodological comments match those in the human review? (PRIMARY)
-5. **Actionability** — Are suggestions constructive, specific, and revision-worthy?
+### Dimension 1: Content Coverage
+- Does the review address the paper's key contributions, claims, and results?
+- Does it cover the main methodological and empirical claims?
+- ML-specific: Does it engage with the method, experiments, and positioning?
 
-Important rules:
-- Focus on substantive overlap and quality, not superficial wording or structure.
-- Do NOT let length alone decide; a longer review is not always better.
-- The ground truth may contain multiple reviewers; prefer the machine review that best matches the overall consensus of human opinions.
-- You MUST choose one winner (A or B). No ties—pick the review that is at least marginally closer to the ground truth.
+### Dimension 2: Critical Depth
+- Does it identify genuine strengths AND weaknesses with substantive reasoning?
+- Are criticisms grounded in the paper (methods, datasets, baselines, ablations)?
+- ML-specific: Does it assess novelty, experimental design, and reproducibility gaps?
 
-You MUST:
-- Return ONLY valid JSON.
-- Use exactly one of: "A" or "B" for the winner (no ties).
-- Always include a non-empty reasoning (2-4 sentences covering the dimensions above).
-- Do not include extra text outside the JSON.
+### Dimension 3: Specificity
+- Does it reference specific elements (equations, tables, sections, datasets)?
+- Or is it generic and applicable to many papers?
+- ML-specific: Does it cite specific baselines, metrics, or experimental choices?
 
-Output format:
+### Dimension 4: Alignment with Ground Truth (PRIMARY)
+- How closely do the main criticisms and strengths match those in the human review?
+- Does the **recommendation direction** (accept vs reject) align with human consensus?
+- When human reviewers are positive, does the machine review reflect that? When they raise specific concerns, does the machine review address similar points?
+- **This dimension overrides others when there is a conflict.**
+
+### Dimension 5: Actionability
+- Are suggestions constructive, specific, and revision-worthy?
+- Would the authors know what to change?
+
+---
+
+## Decision Rules
+
+1. **Evidence over intuition:** Base your decision on observable overlap with the ground truth, not on which review "sounds better" or is longer.
+2. **Recommendation direction matters:** If human consensus is clearly accept-leaning and one review recommends Weak Reject while the other recommends Weak Accept, the Weak Accept review is typically closer—unless the Weak Reject review better captures the human reviewers' specific concerns.
+3. **Consensus over individual opinions:** The ground truth may contain multiple reviewers. Prefer the machine review that best matches the **overall consensus** of human opinions.
+4. **No ties:** You MUST choose A or B. Pick the review that is at least marginally closer to the ground truth.
+5. **Avoid self-preference:** Judge purely on alignment with ground truth. Do not favor a review because it was produced by the same model family or provider as you. Evaluate content and substance only.
+
+---
+
+## What to Ignore
+
+- Format differences (human reviews may be freeform; machine reviews use a fixed structure)
+- Length alone (a longer review is not always better)
+- Superficial wording or structure
+
+---
+
+## Output Format
+
+Return ONLY valid JSON. No extra text outside the JSON.
+
 {
   "winner": "A" | "B",
-  "reasoning": "2-4 sentence explanation referencing the evaluation dimensions"
+  "reasoning": "2-4 sentences: state which review wins, cite the primary dimension (alignment), and briefly explain the key overlap or mismatch with ground truth."
 }
+
+---
+
+## Inputs
 
 ---------------- PAPER TEXT ----------------
 {paper_text}
